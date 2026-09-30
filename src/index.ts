@@ -1,23 +1,36 @@
-import { createEmbedding } from "./embedding.js";
-import { cosineSimilarity } from "./similarity.js";
+import { askLLM } from "./llm.js";
+import { findRelevantDocument } from "./search.js";
 
 async function main() {
   const question = "How long until my package arrives?";
 
-  const shipping = "Standard shipping takes 3-5 business days.";
+  const match = await findRelevantDocument(question);
 
-  const refund = "Customers may return products within 30 days.";
+  if (!match) {
+    console.log("No relevant document found.");
+    return;
+  }
 
-  const questionEmbedding = await createEmbedding(question);
-  const shippingEmbedding = await createEmbedding(shipping);
-  const refundEmbedding = await createEmbedding(refund);
+  console.log("\nSelected document:", match.path);
+  console.log("Similarity score:", match.score);
 
-  const shippingScore = cosineSimilarity(questionEmbedding, shippingEmbedding);
+  const prompt = `
+You are a customer support assistant.
 
-  const refundScore = cosineSimilarity(questionEmbedding, refundEmbedding);
+Answer the question using only the company policy below.
+If the answer is not in the policy, say you don't know.
 
-  console.log("Shipping similarity:", shippingScore);
-  console.log("Refund similarity:", refundScore);
+COMPANY POLICY:
+${match.content}
+
+QUESTION:
+${question}
+`;
+
+  const answer = await askLLM(prompt);
+
+  console.log("\nAnswer:");
+  console.log(answer);
 }
 
 main();

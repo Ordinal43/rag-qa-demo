@@ -288,3 +288,89 @@ It is simply a score used to compare which text is more closely related.
 This is the basic idea behind vector search.
 
 We are still doing everything in memory and are not using a vector database yet.
+
+### Step 7 — Retrieve the Most Relevant Real Document
+
+Updated the retrieval logic so the application now reads the actual policy files instead of comparing hard-coded example strings.
+
+Current documents:
+
+```text
+documents/
+├── refund-policy.txt
+└── shipping-policy.txt
+```
+
+For each user question, the application now:
+
+1. Creates an embedding for the question.
+2. Reads each policy document.
+3. Creates an embedding for each document.
+4. Compares the question embedding against each document embedding.
+5. Selects the document with the highest similarity score.
+6. Sends the selected document and the question to Gemini.
+7. Generates an answer using that document as context.
+
+### Example
+
+Question:
+
+```text
+How long until my package arrives?
+```
+
+Retrieval result:
+
+```text
+documents/refund-policy.txt:   0.5552
+documents/shipping-policy.txt: 0.6622
+
+Selected document:
+documents/shipping-policy.txt
+```
+
+Generated answer:
+
+```text
+It depends on the shipping method you chose:
+
+- Standard shipping: 3–5 business days
+- Express shipping: 1–2 business days
+```
+
+### Is This RAG?
+
+This is now a very small working version of the basic RAG idea:
+
+```text
+Retrieve relevant information
+        ↓
+Add it to the LLM request
+        ↓
+Generate an answer
+```
+
+The current implementation is intentionally simple, and there is no vector database yet.
+
+### Current Limitation
+
+Every time a user asks a question, the application recreates the embeddings for every document:
+
+```text
+Question 1
+   ↓
+embed refund policy
+embed shipping policy
+
+Question 2
+   ↓
+embed refund policy again
+embed shipping policy again
+
+Question 3
+   ↓
+embed refund policy again
+embed shipping policy again
+```
+
+This is inefficient because the policy documents usually do not change between questions, so there is no reason to repeatedly create their embeddings. The next step is to store document embeddings so they can be reused, which is where a **vector database** becomes useful.

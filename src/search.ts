@@ -1,21 +1,38 @@
 import fs from "node:fs/promises";
+import { createEmbedding } from "./embedding.js";
+import { cosineSimilarity } from "./similarity.js";
+
+const documents = [
+  "documents/refund-policy.txt",
+  "documents/shipping-policy.txt",
+];
 
 export async function findRelevantDocument(question: string) {
-  const normalizedQuestion = question.toLowerCase();
+  const questionEmbedding = await createEmbedding(question);
 
-  if (
-    normalizedQuestion.includes("refund") ||
-    normalizedQuestion.includes("return")
-  ) {
-    return fs.readFile("documents/refund-policy.txt", "utf-8");
+  let bestMatch: {
+    path: string;
+    content: string;
+    score: number;
+  } | null = null;
+
+  for (const path of documents) {
+    const content = await fs.readFile(path, "utf-8");
+
+    const documentEmbedding = await createEmbedding(content);
+
+    const score = cosineSimilarity(questionEmbedding, documentEmbedding);
+
+    console.log(`${path}: ${score}`);
+
+    if (!bestMatch || score > bestMatch.score) {
+      bestMatch = {
+        path,
+        content,
+        score,
+      };
+    }
   }
 
-  if (
-    normalizedQuestion.includes("shipping") ||
-    normalizedQuestion.includes("delivery")
-  ) {
-    return fs.readFile("documents/shipping-policy.txt", "utf-8");
-  }
-
-  return null;
+  return bestMatch;
 }
