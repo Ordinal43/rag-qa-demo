@@ -1,5 +1,6 @@
 import { askLLM } from "./llm.js";
 import { createEmbedding } from "./embedding.js";
+import { COLLECTION_NAME } from "./constants.js";
 import { qdrant } from "./qdrant.js";
 
 async function main() {
@@ -9,7 +10,7 @@ async function main() {
   const questionEmbedding = await createEmbedding(question);
 
   // Retrieve the most relevant chunks from Qdrant.
-  const result = await qdrant.query("company-policies", {
+  const result = await qdrant.query(COLLECTION_NAME, {
     query: questionEmbedding,
     limit: 3,
     with_payload: true,
