@@ -374,3 +374,181 @@ embed shipping policy again
 ```
 
 This is inefficient because the policy documents usually do not change between questions, so there is no reason to repeatedly create their embeddings. The next step is to store document embeddings so they can be reused, which is where a **vector database** becomes useful.
+
+### Step 8 — Store and Search Embeddings with Qdrant
+
+Added a local Qdrant vector database using Docker Compose so document embeddings can be stored once and reused.
+
+Current local service:
+
+```text
+Qdrant
+http://localhost:6333
+```
+
+The project uses the `company-policies` collection.
+
+Each stored item contains:
+
+```text
+id
+vector
+payload
+```
+
+Example:
+
+```text
+id: 2
+
+vector:
+[0.009, -0.014, ...]
+
+payload:
+{
+  path: "documents/shipping-policy.txt",
+  content: "Standard shipping takes..."
+}
+```
+
+The `vector` is the document's meaning fingerprint.
+
+The `payload` contains the document data we want back after a search.
+
+### Why Qdrant Helps
+
+Before Qdrant, every question required us to recreate embeddings for every document:
+
+```text
+question
+   ↓
+embed refund policy
+embed shipping policy
+   ↓
+compare manually
+```
+
+Now document embeddings are created once and stored:
+
+```text
+ONE TIME
+
+documents
+   ↓
+create embeddings
+   ↓
+store in Qdrant
+```
+
+For every new question, we only need to embed the question:
+
+```text
+question
+   ↓
+create question embedding
+   ↓
+Qdrant compares it against stored embeddings
+   ↓
+return closest document
+```
+
+### Step 9 — Complete the End-to-End RAG Flow
+
+The application now performs a full small-scale RAG flow from retrieval through final answer generation.
+
+Example question:
+
+```text
+How long until my package arrives?
+```
+
+Qdrant returned:
+
+```text
+shipping-policy.txt → 0.6622
+refund-policy.txt   → 0.5552
+```
+
+The application selected the shipping policy and passed its content to Gemini.
+
+Generated answer:
+
+```text
+It depends on the shipping method selected for your order:
+
+- Standard shipping: 3–5 business days
+- Express shipping: 1–2 business days
+```
+
+### Current RAG Flow
+
+```text
+User question
+     ↓
+Create question embedding
+     ↓
+Search Qdrant
+     ↓
+Find closest stored document
+     ↓
+Retrieve document content
+     ↓
+Document + question
+     ↓
+Gemini
+     ↓
+Generated answer
+```
+
+This is now a working example of **Retrieval-Augmented Generation**:
+
+```text
+Retrieval
+Find relevant information in Qdrant
+
+Augmentation
+Add that information to the LLM prompt
+
+Generation
+Let Gemini generate the final answer
+```
+
+### Current Limitation
+
+Each policy file is still stored as a single searchable item, so the next improvement is likely chunking the documents into smaller pieces.
+
+For example:
+
+```text
+shipping-policy.txt
+→ one embedding
+```
+
+This works for very small documents, but real documents may contain many unrelated topics.
+
+For example, a larger document could contain:
+
+```text
+Shipping times
+Shipping prices
+International shipping
+Lost packages
+Refunds
+Tracking
+```
+
+Representing the entire file with one embedding can make it harder to retrieve the exact section that answers a question.
+
+The next step is **chunking**:
+
+```text
+large document
+     ↓
+split into smaller sections
+     ↓
+create an embedding for each section
+     ↓
+store each section separately in Qdrant
+```
+
+This will let the application retrieve the specific part of a document that is most relevant to the user's question.
