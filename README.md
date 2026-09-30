@@ -190,3 +190,76 @@ This is **not RAG yet**.
 Right now we manually send the entire document to the LLM.
 
 This works when we only have a small amount of information, but it
+
+### Step 4 — Add Basic Document Retrieval
+
+Added a second document:
+
+```text
+documents/shipping-policy.txt
+```
+
+Created:
+
+```text
+src/search.ts
+```
+
+The application now checks the user's question and chooses a relevant document before calling the LLM.
+
+Current flow:
+
+```text
+question
+   ↓
+search.ts
+   ↓
+relevant document
+   ↓
+document + question
+   ↓
+Gemini
+   ↓
+answer
+```
+
+Example:
+
+```text
+Question:
+How long does delivery take?
+
+Matched document:
+shipping-policy.txt
+
+Answer:
+Standard shipping takes 3-5 business days.
+```
+
+### Why This Matters
+
+This is our first simple version of **retrieval**.
+
+Instead of always sending the same document, the application first decides which document is relevant.
+
+Right now the search is based on hard-coded keywords:
+
+```text
+"refund" or "return"
+→ refund-policy.txt
+
+"shipping" or "delivery"
+→ shipping-policy.txt
+```
+
+This works for simple cases, but it has an obvious weakness.
+
+For example:
+
+```text
+"When will my package arrive?"
+```
+
+may not match because our code only knows specific keywords.
+
+The next step is to replace this hard-coded matching with a smarter search method that can recognize similar meaning even when the exact words are different.
