@@ -1,32 +1,10 @@
-import { askLLM } from "./llm.js";
-import { findRelevantDocument } from "./search.js";
+import { createEmbedding } from "./embedding.js";
 
 async function main() {
-  const question = "How long does delivery take?";
+  const embedding = await createEmbedding("How long does shipping take?");
 
-  const document = await findRelevantDocument(question);
-
-  if (!document) {
-    console.log("No relevant document found.");
-    return;
-  }
-
-  const prompt = `
-You are a customer support assistant.
-
-Answer the question using only the company policy below.
-If the answer is not in the policy, say you don't know.
-
-COMPANY POLICY:
-${document}
-
-QUESTION:
-${question}
-`;
-
-  const answer = await askLLM(prompt);
-
-  console.log(answer);
+  console.log("Embedding size:", embedding.length);
+  console.log("First 10 values:", embedding.slice(0, 10));
 }
 
 main();

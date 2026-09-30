@@ -263,3 +263,71 @@ For example:
 may not match because our code only knows specific keywords.
 
 The next step is to replace this hard-coded matching with a smarter search method that can recognize similar meaning even when the exact words are different.
+
+### Step 5 — Generate Our First Embedding
+
+Created:
+
+```text
+src/embedding.ts
+```
+
+The application can now send text to Gemini's embedding model and receive a numeric representation of that text.
+
+Example:
+
+```text
+"How long does shipping take?"
+        ↓
+embedding model
+        ↓
+[0.0096, 0.0009, -0.0128, ...]
+```
+
+In our test, the embedding contained:
+
+```text
+3072 numbers
+```
+
+### What Is an Embedding?
+
+For this project, we can think of an embedding as a **meaning fingerprint**.
+
+The model converts text into a long list of numbers that can later be compared with other text.
+
+We do not need to interpret the individual numbers.
+
+What matters is that text with similar meaning should produce fingerprints that are more similar to each other.
+
+Example:
+
+```text
+"How long until my package arrives?"
+```
+
+should be more closely related to:
+
+```text
+"Standard shipping takes 3-5 business days."
+```
+
+than to:
+
+```text
+"Customers may return products within 30 days."
+```
+
+### Current Flow
+
+```text
+text
+  ↓
+Gemini embedding model
+  ↓
+meaning fingerprint
+```
+
+We are **not using a vector database yet**.
+
+The next step is to compare multiple embeddings and see whether the application can identify which sentence is closest in meaning to a user's question.
