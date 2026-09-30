@@ -75,6 +75,24 @@ GEMINI_API_KEY=your_api_key_here
 
 The `.env` file is ignored by Git and should never be committed.
 
+## Learning Notes
+
+### What is an LLM API?
+
+From this project's perspective, an LLM API is just another API:
+
+```text
+request
+   ↓
+LLM provider
+   ↓
+response
+```
+
+We send text and receive generated text.
+
+More advanced concepts will be introduced one at a time as the project grows.
+
 ## Learning Progress
 
 ### Step 1 — Project Setup
@@ -103,38 +121,72 @@ documents/
 
 ### Step 2 — Connect to an LLM
 
-Install the Gemini SDK and dotenv:
+Installed the Gemini SDK and dotenv:
 
 ```bash
 pnpm add @google/genai dotenv
 ```
 
-The first goal is simply:
+Created a reusable `askLLM()` function in `src/llm.ts`.
+
+Current flow:
 
 ```text
-TypeScript app
-      ↓
+index.ts
+   ↓
+llm.ts
+   ↓
 Gemini API
-      ↓
-Text response
+   ↓
+generated response
 ```
 
-No RAG, vector database, or document search is involved yet.
+### Step 3 — Give the LLM Our Own Document
 
-## Learning Notes
-
-### What is an LLM API?
-
-From this project's perspective, an LLM API is just another API:
+Created:
 
 ```text
-request
-   ↓
-LLM provider
-   ↓
-response
+documents/refund-policy.txt
 ```
 
-We send text and receive generated text.
+Example policy:
 
-More advanced concepts will be introduced one at a time as the project grows.
+```text
+Customers may return unused products within 30 days of purchase.
+
+Products must be in their original condition.
+
+Shipping fees are non-refundable.
+```
+
+The application now reads the document and sends it to the LLM together with the user's question.
+
+Current flow:
+
+```text
+refund-policy.txt
+        +
+     question
+        ↓
+      Gemini
+        ↓
+      answer
+```
+
+Example:
+
+```text
+Question:
+How long do I have to return an item?
+
+Answer:
+You can return an unused product within 30 days of purchase.
+```
+
+### Important Concept
+
+This is **not RAG yet**.
+
+Right now we manually send the entire document to the LLM.
+
+This works when we only have a small amount of information, but it
