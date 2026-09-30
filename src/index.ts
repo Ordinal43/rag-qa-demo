@@ -3,58 +3,49 @@ import { createEmbedding } from "./embedding.js";
 import { qdrant } from "./qdrant.js";
 
 async function main() {
-  const question = "How long until my package arrives?";
+  const question = "Are shipping fees refundable?";
 
-  // Convert the user's question into the same kind of
-  // numeric "meaning fingerprint" we stored for our documents.
+  // Turn the user's question into an embedding.
   const questionEmbedding = await createEmbedding(question);
 
-  // Ask Qdrant to find the stored document whose embedding
-  // is most similar to the question embedding.
+  // Retrieve the most relevant chunks from Qdrant.
   const result = await qdrant.query("company-policies", {
     query: questionEmbedding,
-    limit: 1,
+    limit: 3,
     with_payload: true,
   });
 
-  // Since we only asked for one result, the first point
-  // should be our best matching document.
-  const bestMatch = result.points[0];
+  // Extract readable chunk content from the returned points.
+  const chunks = result.points
+    .map((point) => point.payload?.content)
+    .filter((content): content is string => typeof content === "string");
 
-  if (!bestMatch?.payload) {
-    console.log("No relevant document found.");
+  const uniqueChunks = [...new Set(chunks)];
+
+  const context = uniqueChunks.join("\n\n");
+
+  if (!context) {
+    console.log("No relevant information found.");
     return;
   }
 
-  // The payload contains the original document data
-  // that we stored together with its embedding.
-  const content = bestMatch.payload.content;
+  console.log("Retrieved context:");
+  console.log(context);
 
-  if (typeof content !== "string") {
-    console.log("Matched document has no readable content.");
-    return;
-  }
-
-  console.log("Matched document:", bestMatch.payload.path);
-  console.log("Similarity score:", bestMatch.score);
-
-  // Give Gemini only the retrieved policy instead of
-  // sending every document we have.
+  // Give Gemini only the chunks that Qdrant considered relevant.
   const prompt = `
 You are a customer support assistant.
 
-Answer the question using only the company policy below.
-If the answer is not in the policy, say you don't know.
+Answer the question using only the provided context.
+If the answer is not supported by the context, say you don't know.
 
-COMPANY POLICY:
-${content}
+CONTEXT:
+${context}
 
 QUESTION:
 ${question}
 `;
 
-  // Generate the final answer using the retrieved document
-  // as context.
   const answer = await askLLM(prompt);
 
   console.log("\nAnswer:");

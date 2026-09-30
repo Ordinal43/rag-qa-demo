@@ -552,3 +552,207 @@ store each section separately in Qdrant
 ```
 
 This will let the application retrieve the specific part of a document that is most relevant to the user's question.
+
+### Step 10 — Split Documents into Chunks
+
+Previously, each entire policy file was stored as one searchable item. That works for very small files, but larger documents can contain many unrelated topics, so the project now splits documents into smaller pieces before storing them.
+
+Example:
+
+```text id="re3d9i"
+refund-policy.txt
+
+Customers may return unused products within 30 days.
+
+Products must be in their original condition.
+
+Shipping fees are non-refundable.
+```
+
+becomes:
+
+```text id="ztjh6p"
+Chunk 1:
+Customers may return unused products within 30 days.
+
+Chunk 2:
+Products must be in their original condition.
+
+Chunk 3:
+Shipping fees are non-refundable.
+```
+
+Each chunk receives its own embedding and is stored separately in Qdrant.
+
+### Why Chunking Helps
+
+Without chunking:
+
+```text id="hqgl7h"
+question
+   ↓
+find relevant document
+```
+
+With chunking:
+
+```text id="19tpvg"
+question
+   ↓
+find relevant part of a document
+```
+
+This allows Qdrant to retrieve a specific sentence or paragraph instead of returning an entire file.
+
+### Example Retrieval
+
+Question:
+
+```text id="9k4w38"
+Are shipping fees refundable?
+```
+
+Qdrant returned:
+
+```text id="o5n4un"
+Shipping fees are non-refundable.
+→ score: 0.9143
+
+Shipping fees are non-refundable.
+→ score: 0.9143
+
+Products must be in their original condition.
+→ score: 0.6516
+```
+
+The first two results were identical because the same sentence existed in both policy files.
+
+This showed that the vector search was working correctly, but also introduced a duplicate-context problem.
+
+### Step 11 — Retrieve Multiple Relevant Chunks
+
+Instead of retrieving only one result, the application now retrieves the top few matching chunks.
+
+Current flow:
+
+```text id="n3rqz3"
+User question
+     ↓
+Create question embedding
+     ↓
+Search Qdrant
+     ↓
+Retrieve top matching chunks
+     ↓
+Combine chunks into context
+     ↓
+Send context + question to Gemini
+     ↓
+Generate answer
+```
+
+For example:
+
+```text id="bmjkoc"
+Question:
+Are shipping fees refundable?
+```
+
+Retrieved context:
+
+```text id="jd8pgm"
+Shipping fees are non-refundable.
+
+Shipping fees are non-refundable.
+
+Products must be in their original condition.
+```
+
+Generated answer:
+
+```text id="7mjllw"
+No, shipping fees are non-refundable.
+```
+
+### Step 12 — Remove Duplicate Context
+
+Because the same information may exist in multiple documents, retrieval can return duplicate chunks.
+
+Before cleanup:
+
+```text id="3evxu3"
+Shipping fees are non-refundable.
+
+Shipping fees are non-refundable.
+
+Products must be in their original condition.
+```
+
+The application now removes duplicate chunk text before sending the context to Gemini.
+
+After cleanup:
+
+```text id="hb2bxl"
+Shipping fees are non-refundable.
+
+Products must be in their original condition.
+```
+
+This keeps the prompt cleaner and avoids unnecessarily sending the same information multiple times.
+
+### Current RAG Flow
+
+The project now performs:
+
+```text id="weq9qs"
+Documents
+   ↓
+Split into chunks
+   ↓
+Create embeddings
+   ↓
+Store chunks in Qdrant
+
+
+User question
+   ↓
+Create question embedding
+   ↓
+Search Qdrant
+   ↓
+Retrieve top matching chunks
+   ↓
+Remove duplicate chunks
+   ↓
+Build context
+   ↓
+Send context + question to Gemini
+   ↓
+Generate answer
+```
+
+### What We Have Learned So Far
+
+A RAG system is not just an LLM call.
+
+There are several separate steps that can succeed or fail independently:
+
+```text id="6wvf1m"
+Document loading
+      ↓
+Chunking
+      ↓
+Embedding
+      ↓
+Storage
+      ↓
+Retrieval
+      ↓
+Context preparation
+      ↓
+LLM generation
+```
+
+From a QA perspective, each of these steps can be tested separately.
+
+The next step is to test what happens when the user's question cannot actually be answered by any of the stored documents.
