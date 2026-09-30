@@ -20,13 +20,15 @@ async function main() {
   });
 
   const points: Array<{
-    id: string;
+    id: number;
     vector: number[];
     payload: {
       path: string;
       content: string;
     };
   }> = [];
+
+  let pointId = 1;
 
   for (const path of documents) {
     const content = await fs.readFile(path, "utf-8");
@@ -37,7 +39,7 @@ async function main() {
       const vector = await createEmbedding(chunk);
 
       points.push({
-        id: `${path}#${index + 1}`,
+        id: pointId++,
         vector,
         payload: {
           path,
