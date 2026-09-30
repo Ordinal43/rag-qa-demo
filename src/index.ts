@@ -3,7 +3,7 @@ import { createEmbedding } from "./embedding.js";
 import { qdrant } from "./qdrant.js";
 
 async function main() {
-  const question = "Are shipping fees refundable?";
+  const question = "Do you ship internationally?";
 
   // Turn the user's question into an embedding.
   const questionEmbedding = await createEmbedding(question);
@@ -15,8 +15,13 @@ async function main() {
     with_payload: true,
   });
 
-  // Extract readable chunk content from the returned points.
-  const chunks = result.points
+  const MIN_SIMILARITY_SCORE = 0.7;
+
+  const relevantPoints = result.points.filter(
+    (point) => point.score >= MIN_SIMILARITY_SCORE,
+  );
+
+  const chunks = relevantPoints
     .map((point) => point.payload?.content)
     .filter((content): content is string => typeof content === "string");
 

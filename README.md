@@ -756,3 +756,109 @@ LLM generation
 From a QA perspective, each of these steps can be tested separately.
 
 The next step is to test what happens when the user's question cannot actually be answered by any of the stored documents.
+
+### Step 13 — Add a Minimum Retrieval Score
+
+Vector search will usually return the closest matches even when none of them are useful enough to answer the user's question.
+
+For example:
+
+```text
+Question:
+Do you ship internationally?
+```
+
+Qdrant may still return shipping-related chunks such as:
+
+```text
+Express shipping takes 1-2 business days.
+
+Shipping fees are non-refundable.
+```
+
+Those chunks are related to shipping, but they do not answer the question.
+
+To avoid passing weak context to the LLM, the application now uses a minimum similarity score.
+
+Example:
+
+```ts
+const MIN_SIMILARITY_SCORE = 0.7;
+
+const relevantPoints = result.points.filter(
+  (point) => point.score >= MIN_SIMILARITY_SCORE,
+);
+```
+
+The retrieval flow is now:
+
+```text
+User question
+     ↓
+Create embedding
+     ↓
+Search Qdrant
+     ↓
+Get closest chunks
+     ↓
+Check similarity scores
+     ↓
+Remove weak matches
+     ↓
+No good matches?
+     │
+     ├── Yes → Stop
+     │          "No relevant information found."
+     │
+     └── No → Continue
+               ↓
+          Build context
+               ↓
+             Gemini
+```
+
+Example result:
+
+```text
+Question:
+Do you ship internationally?
+
+Result:
+No relevant information found.
+```
+
+This prevents the application from sending unrelated or weakly related information to the LLM.
+
+### Important Note About the Threshold
+
+The value:
+
+```text
+0.7
+```
+
+is not a universal rule.
+
+Different embedding models, document types, chunk sizes, and datasets can produce different similarity score patterns, so the threshold should be tested and adjusted using real example questions.
+
+From a QA perspective, this means creating known test cases such as:
+
+```text
+Question                         Should retrieve?
+--------------------------------------------------
+Are shipping fees refundable?   Yes
+How long does delivery take?    Yes
+Can I return an item?           Yes
+Do you ship internationally?    No
+Do you accept Bitcoin?          No
+```
+
+The goal is to find a threshold that keeps useful results while rejecting unrelated ones.
+
+This introduces an important RAG testing concept:
+
+```text
+closest result
+      ≠
+relevant enough result
+```
