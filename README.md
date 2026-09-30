@@ -6,7 +6,7 @@ The goal of this project is to learn AI/LLM testing from a software engineering 
 
 ## What This Project Will Cover
 
-Eventually, this project will include:
+Eventually, this project will cover:
 
 - Calling an LLM API
 - Supplying custom documents to an LLM
@@ -29,7 +29,7 @@ Eventually, this project will include:
 - Vitest
 - Gemini API
 
-Additional tools will be added gradually as the project grows.
+Additional tools will be added as the project grows.
 
 ## Project Structure
 
@@ -89,9 +89,7 @@ LLM provider
 response
 ```
 
-We send text and receive generated text.
-
-More advanced concepts will be introduced one at a time as the project grows.
+We send text and receive generated text. More advanced concepts will be introduced one at a time.
 
 ## Learning Progress
 
@@ -129,18 +127,6 @@ pnpm add @google/genai dotenv
 
 Created a reusable `askLLM()` function in `src/llm.ts`.
 
-Current flow:
-
-```text
-index.ts
-   ↓
-llm.ts
-   ↓
-Gemini API
-   ↓
-generated response
-```
-
 ### Step 3 — Give the LLM Our Own Document
 
 Created:
@@ -159,37 +145,11 @@ Products must be in their original condition.
 Shipping fees are non-refundable.
 ```
 
-The application now reads the document and sends it to the LLM together with the user's question.
-
-Current flow:
-
-```text
-refund-policy.txt
-        +
-     question
-        ↓
-      Gemini
-        ↓
-      answer
-```
-
-Example:
-
-```text
-Question:
-How long do I have to return an item?
-
-Answer:
-You can return an unused product within 30 days of purchase.
-```
+The application now reads the document and sends it to the LLM with the user's question.
 
 ### Important Concept
 
-This is **not RAG yet**.
-
-Right now we manually send the entire document to the LLM.
-
-This works when we only have a small amount of information, but it
+This is **not RAG yet**. We are still manually sending the full document to the LLM, which works for small inputs but does not scale well.
 
 ### Step 4 — Add Basic Document Retrieval
 
@@ -205,44 +165,13 @@ Created:
 src/search.ts
 ```
 
-The application now checks the user's question and chooses a relevant document before calling the LLM.
-
-Current flow:
-
-```text
-question
-   ↓
-search.ts
-   ↓
-relevant document
-   ↓
-document + question
-   ↓
-Gemini
-   ↓
-answer
-```
-
-Example:
-
-```text
-Question:
-How long does delivery take?
-
-Matched document:
-shipping-policy.txt
-
-Answer:
-Standard shipping takes 3-5 business days.
-```
+The application now checks the user's question and chooses a relevant document before calling the LLM. For now, that matching is still keyword-based.
 
 ### Why This Matters
 
-This is our first simple version of **retrieval**.
+This is our first simple version of **retrieval**: instead of always sending the same document, the application first decides which one is relevant.
 
-Instead of always sending the same document, the application first decides which document is relevant.
-
-Right now the search is based on hard-coded keywords:
+Right now the search uses hard-coded keywords:
 
 ```text
 "refund" or "return"
@@ -252,17 +181,13 @@ Right now the search is based on hard-coded keywords:
 → shipping-policy.txt
 ```
 
-This works for simple cases, but it has an obvious weakness.
-
-For example:
+This works for simple cases, but it has an obvious weakness. For example:
 
 ```text
 "When will my package arrive?"
 ```
 
-may not match because our code only knows specific keywords.
-
-The next step is to replace this hard-coded matching with a smarter search method that can recognize similar meaning even when the exact words are different.
+may not match because the code only knows specific keywords. The next step is to replace that with a smarter search method that can recognize similar meaning even when the exact words are different.
 
 ### Step 5 — Generate Our First Embedding
 
@@ -292,13 +217,7 @@ In our test, the embedding contained:
 
 ### What Is an Embedding?
 
-For this project, we can think of an embedding as a **meaning fingerprint**.
-
-The model converts text into a long list of numbers that can later be compared with other text.
-
-We do not need to interpret the individual numbers.
-
-What matters is that text with similar meaning should produce fingerprints that are more similar to each other.
+For this project, we can think of an embedding as a **meaning fingerprint**: a long list of numbers that can later be compared with other text. We do not need to interpret the individual numbers; we only care that similar text produces similar fingerprints.
 
 Example:
 
@@ -318,16 +237,54 @@ than to:
 "Customers may return products within 30 days."
 ```
 
-### Current Flow
+We are **not using a vector database yet**. The next step is to compare multiple embeddings and see whether the application can identify which sentence is closest in meaning to a user's question.
+
+### Step 6 — Compare Embeddings by Meaning
+
+Created:
 
 ```text
-text
-  ↓
-Gemini embedding model
-  ↓
-meaning fingerprint
+src/similarity.ts
 ```
 
-We are **not using a vector database yet**.
+The application can now compare two embeddings and return a similarity score. For this project, we can think of the score as:
 
-The next step is to compare multiple embeddings and see whether the application can identify which sentence is closest in meaning to a user's question.
+> How closely related are these two pieces of text?
+
+Example:
+
+```text
+Question:
+"How long until my package arrives?"
+
+Shipping policy:
+"Standard shipping takes 3-5 business days."
+
+Refund policy:
+"Customers may return products within 30 days."
+```
+
+Result:
+
+```text
+Shipping similarity: 0.7104
+Refund similarity:   0.5669
+```
+
+The shipping text received the higher score, which means it was considered more relevant to the question. The similarity score is **not a percentage of correctness**.
+
+```text
+0.71
+```
+
+does not mean:
+
+```text
+71% correct
+```
+
+It is simply a score used to compare which text is more closely related.
+
+This is the basic idea behind vector search.
+
+We are still doing everything in memory and are not using a vector database yet.
