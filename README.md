@@ -888,3 +888,333 @@ closest result
       ≠
 relevant enough result
 ```
+
+### Step 14: Separate the RAG Pipeline into Clear Responsibilities
+
+As the project grew, the original experimental code was split into separate modules so that each part of the RAG flow has one clear responsibility.
+
+The current application structure is:
+
+```text
+documents/*.txt
+      ↓
+  ingest.ts
+      ↓
+   chunk.ts
+      ↓
+ embedding.ts
+      ↓
+    Qdrant
+```
+
+For answering questions:
+
+```text
+User question
+      ↓
+ retrieval.ts
+      ↓
+ embedding.ts
+      ↓
+    Qdrant
+      ↓
+threshold + deduplication
+      ↓
+   index.ts
+      ↓
+    llm.ts
+      ↓
+    Gemini
+```
+
+The main responsibilities are now:
+
+```text
+ingest.ts
+→ prepares the knowledge base
+
+chunk.ts
+→ splits documents into smaller searchable pieces
+
+embedding.ts
+→ converts text into embeddings
+
+qdrant.ts
+→ connects to Qdrant and checks that it is ready
+
+retrieval.ts
+→ finds useful chunks for a question
+
+index.ts
+→ controls the question → retrieval → LLM flow
+
+llm.ts
+→ communicates with Gemini
+```
+
+This separation is useful because each layer can now be understood, debugged, and tested independently.
+
+The earlier experimental `search.ts` and `similarity.ts` files were removed because Qdrant now performs the vector similarity search.
+
+### Step 15: Separate Ingestion from Querying
+
+Document ingestion and user queries are now two separate operations.
+
+When the source documents change, run:
+
+```bash
+pnpm ingest
+```
+
+This performs:
+
+```text
+documents
+   ↓
+split into chunks
+   ↓
+generate embeddings
+   ↓
+recreate Qdrant collection
+   ↓
+store chunks and vectors
+```
+
+Normal questions do not regenerate document embeddings.
+
+Instead:
+
+```bash
+pnpm dev
+```
+
+uses the vectors that are already stored in Qdrant.
+
+This avoids unnecessary embedding API calls every time a user asks a question.
+
+### Step 16: Check That Qdrant Is Ready
+
+Before attempting a RAG query, the application checks whether Qdrant has been prepared correctly.
+
+This allows the application to distinguish between:
+
+```text
+"No relevant information exists for this question."
+```
+
+and:
+
+```text
+"The knowledge base has not been set up yet."
+```
+
+The readiness check verifies that the expected Qdrant collection exists and contains data.
+
+If the setup is incomplete, the application can tell the developer to run:
+
+```bash
+pnpm ingest
+```
+
+This check does not generate an embedding or make an LLM request.
+
+That is intentional: checking infrastructure readiness should not require an AI API call.
+
+### Step 17: Add Automated Retrieval Tests
+
+Manual testing is useful while learning, but changing the question in `index.ts` repeatedly does not provide reliable regression coverage.
+
+The project now uses Vitest to automatically test the retrieval layer.
+
+Current retrieval tests cover three types of behavior.
+
+#### Known Question — Exact Policy
+
+```text
+Question:
+Are shipping fees refundable?
+
+Expected:
+Retrieve "Shipping fees are non-refundable."
+```
+
+#### Known Question — Semantically Similar Wording
+
+```text
+Question:
+How long until my package arrives?
+
+Expected:
+Retrieve shipping-related information even though
+the question does not directly say "shipping".
+```
+
+This verifies that retrieval is based on meaning rather than exact keyword matching.
+
+#### Unsupported Question
+
+```text
+Question:
+Do you accept Bitcoin?
+
+Expected:
+No retrieved chunks should pass the minimum
+similarity threshold.
+```
+
+This verifies that the application rejects weak matches instead of treating the closest available result as relevant.
+
+The test suite can be run with:
+
+```bash
+pnpm test
+```
+
+The retrieval tests require:
+
+```text
+Qdrant running
+      +
+documents already ingested
+```
+
+So the local setup is:
+
+```bash
+docker compose up -d
+pnpm ingest
+pnpm test
+```
+
+### Why Test Retrieval Separately?
+
+A RAG response has at least two major stages:
+
+```text
+1. Retrieval
+   Did we find the correct information?
+
+2. Generation
+   Did the LLM use that information correctly?
+```
+
+If the final answer is wrong, testing these stages separately helps identify where the problem occurred.
+
+For example:
+
+```text
+Wrong chunk retrieved
+        ↓
+Retrieval problem
+```
+
+versus:
+
+```text
+Correct chunk retrieved
+        ↓
+Gemini gives an unsupported answer
+        ↓
+Generation problem
+```
+
+The current automated tests focus only on the retrieval stage.
+
+The next testing milestone is to evaluate the generated LLM answers themselves.
+
+## Testing
+
+The project currently has automated tests for the **retrieval layer**.
+
+The purpose of these tests is to verify that the RAG system finds the right information before involving the LLM.
+
+Current coverage:
+
+```text
+1. Relevant question
+   → retrieves the expected policy chunk
+
+2. Different wording, same meaning
+   → still retrieves the correct topic
+
+3. Unsupported question
+   → no result should pass the similarity threshold
+```
+
+Example:
+
+```text
+Question:
+Are shipping fees refundable?
+
+Expected retrieved chunk:
+Shipping fees are non-refundable.
+```
+
+Another example:
+
+```text
+Question:
+How long until my package arrives?
+
+Expected:
+A shipping-related chunk should be retrieved even
+though the question does not use the exact word
+"shipping".
+```
+
+Unsupported example:
+
+```text
+Question:
+Do you accept Bitcoin?
+
+Expected:
+No chunks should pass MIN_SIMILARITY_SCORE.
+```
+
+### Running the Tests
+
+Qdrant must be running and the documents must already be ingested.
+
+```bash
+docker compose up -d
+pnpm ingest
+pnpm test
+```
+
+### What the Tests Currently Cover
+
+```text
+question
+   ↓
+embedding
+   ↓
+Qdrant search
+   ↓
+similarity threshold
+   ↓
+deduplication
+   ↓
+retrieved context
+```
+
+The tests do **not** currently verify Gemini's final answer.
+
+That means the project can currently detect retrieval problems such as:
+
+```text
+wrong chunk retrieved
+weak match incorrectly accepted
+relevant match incorrectly rejected
+```
+
+but it does not yet detect generation problems such as:
+
+```text
+correct context retrieved
+        ↓
+LLM gives wrong answer
+```
+
+The next testing milestone is to add automated checks for the generated answers.
