@@ -1218,3 +1218,252 @@ LLM gives wrong answer
 ```
 
 The next testing milestone is to add automated checks for the generated answers.
+
+### Step 18: Add Generation Tests
+
+The project now tests not only whether the correct context is retrieved, but also whether Gemini produces an answer that contains the expected fact.
+
+Example:
+
+```text
+Question:
+Are shipping fees refundable?
+
+Expected fact:
+Shipping fees are non-refundable.
+```
+
+Because LLM wording can vary between runs, the test does not compare the full answer exactly.
+
+Instead, it checks for the important fact:
+
+```ts
+expect(answer?.toLowerCase()).toContain("non-refundable");
+```
+
+This avoids brittle tests such as:
+
+```text
+Expected:
+"No, shipping fees are non-refundable."
+
+Actual:
+"Shipping fees are not refundable."
+```
+
+Both answers communicate the same fact, so exact string matching would be unnecessarily strict.
+
+### Step 19: Prevent Unnecessary LLM Calls
+
+The application already stops when retrieval finds no useful context.
+
+The test suite now verifies that behavior explicitly.
+
+Example:
+
+```text
+Question:
+Do you accept Bitcoin?
+```
+
+There is no supporting information in the company policy documents.
+
+Expected behavior:
+
+```text
+retrieval finds no relevant chunks
+        ↓
+answerQuestion() returns null
+        ↓
+Gemini is NOT called
+```
+
+The test mocks the LLM function so no real Gemini request is made:
+
+```ts
+vi.mock("../src/llm.js", () => ({
+  askLLM: vi.fn(),
+}));
+```
+
+Then it verifies:
+
+```ts
+expect(answer).toBeNull();
+expect(askLLM).not.toHaveBeenCalled();
+```
+
+This is useful for two reasons:
+
+```text
+1. Prevent unsupported answers
+2. Avoid unnecessary API usage and cost
+```
+
+## Current Test Structure
+
+```text
+tests/
+├── retrieval.test.ts
+├── generation.test.ts
+└── rag-guard.test.ts
+```
+
+Each file tests a different part of the system.
+
+### `retrieval.test.ts`
+
+Tests whether the retrieval layer finds useful knowledge.
+
+Examples:
+
+```text
+"Are shipping fees refundable?"
+→ retrieve shipping fee policy
+
+"How long until my package arrives?"
+→ retrieve shipping-related context
+
+"Do you accept Bitcoin?"
+→ no chunk should pass the similarity threshold
+```
+
+### `generation.test.ts`
+
+Tests the final generated answer using the real LLM.
+
+Example:
+
+```text
+retrieved context:
+Shipping fees are non-refundable.
+
+question:
+Are shipping fees refundable?
+
+expected:
+The generated answer contains the fact that
+shipping fees are non-refundable.
+```
+
+These tests are less deterministic than normal application tests because the wording produced by an LLM may change between runs.
+
+### `rag-guard.test.ts`
+
+Tests application behavior without calling the real LLM.
+
+Example:
+
+```text
+unsupported question
+        ↓
+no relevant context
+        ↓
+LLM should not be called
+```
+
+This uses a mocked `askLLM()` function.
+
+## Current QA Coverage
+
+The project now tests three separate parts of the RAG flow:
+
+```text
+1. Retrieval
+
+Question
+   ↓
+Embedding
+   ↓
+Qdrant
+   ↓
+Correct context?
+```
+
+```text
+2. Guard behavior
+
+No useful context
+   ↓
+Stop early
+   ↓
+Do not call Gemini
+```
+
+```text
+3. Generation
+
+Correct context
+   ↓
+Gemini
+   ↓
+Expected fact present?
+```
+
+Separating these layers is important when debugging failures.
+
+For example:
+
+```text
+Wrong final answer
+        ↓
+Was the correct context retrieved?
+        │
+        ├── No
+        │    ↓
+        │ Retrieval problem
+        │
+        └── Yes
+             ↓
+        Generation problem
+```
+
+## Current Project Milestone
+
+The project now contains a complete small RAG pipeline:
+
+```text
+Documents
+   ↓
+Chunking
+   ↓
+Embeddings
+   ↓
+Qdrant
+   ↓
+Stored knowledge
+```
+
+and:
+
+```text
+User question
+   ↓
+Embedding
+   ↓
+Qdrant retrieval
+   ↓
+Similarity threshold
+   ↓
+Deduplication
+   ↓
+Relevant context
+   ↓
+Gemini
+   ↓
+Generated answer
+```
+
+Automated tests currently verify:
+
+```text
+✓ relevant information can be retrieved
+✓ similar wording can still find the correct topic
+✓ weak matches are rejected
+✓ unsupported questions do not call the LLM
+✓ generated answers contain expected facts
+```
+
+This completes the first project milestone.
+
+The next learning phase can focus on more advanced LLM evaluation, such as hallucination testing, larger evaluation datasets, multiple question variations, and checking whether generated answers are fully supported by the retrieved context.
