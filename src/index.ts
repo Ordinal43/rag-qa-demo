@@ -1,44 +1,27 @@
 import { askLLM } from "./llm.js";
-import { createEmbedding } from "./embedding.js";
-import { COLLECTION_NAME } from "./constants.js";
-import { qdrant } from "./qdrant.js";
+import { checkQdrantSetup } from "./qdrant.js";
+import { retrieveContext } from "./retrieval.js";
 
 async function main() {
-  const question = "Do you ship internationally?";
+  const setup = await checkQdrantSetup();
 
-  // Turn the user's question into an embedding.
-  const questionEmbedding = await createEmbedding(question);
+  if (!setup.ready) {
+    console.log(`RAG setup is not ready: ${setup.reason}`);
+    console.log("Run: pnpm ingest");
+    return;
+  }
 
-  // Retrieve the most relevant chunks from Qdrant.
-  const result = await qdrant.query(COLLECTION_NAME, {
-    query: questionEmbedding,
-    limit: 3,
-    with_payload: true,
-  });
+  const question = "Are shipping fees refundable?";
 
-  const MIN_SIMILARITY_SCORE = 0.7;
+  const chunks = await retrieveContext(question);
 
-  const relevantPoints = result.points.filter(
-    (point) => point.score >= MIN_SIMILARITY_SCORE,
-  );
-
-  const chunks = relevantPoints
-    .map((point) => point.payload?.content)
-    .filter((content): content is string => typeof content === "string");
-
-  const uniqueChunks = [...new Set(chunks)];
-
-  const context = uniqueChunks.join("\n\n");
-
-  if (!context) {
+  if (chunks.length === 0) {
     console.log("No relevant information found.");
     return;
   }
 
-  console.log("Retrieved context:");
-  console.log(context);
+  const context = chunks.join("\n\n");
 
-  // Give Gemini only the chunks that Qdrant considered relevant.
   const prompt = `
 You are a customer support assistant.
 
@@ -53,6 +36,9 @@ ${question}
 `;
 
   const answer = await askLLM(prompt);
+
+  console.log("Retrieved context:");
+  console.log(context);
 
   console.log("\nAnswer:");
   console.log(answer);

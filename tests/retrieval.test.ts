@@ -1,59 +1,24 @@
 import { describe, expect, it } from "vitest";
-import { createEmbedding } from "../src/embedding.js";
-import { qdrant } from "../src/qdrant.js";
-import { COLLECTION_NAME } from "../src/constants.js";
+import { retrieveContext } from "../src/retrieval.js";
 
 describe("RAG retrieval", () => {
-  it("retrieves the shipping fee policy for a refundability question", async () => {
-    const question = "Are shipping fees refundable?";
+  it("retrieves the shipping fee policy", async () => {
+    const chunks = await retrieveContext("Are shipping fees refundable?");
 
-    const questionEmbedding = await createEmbedding(question);
-
-    const result = await qdrant.query(COLLECTION_NAME, {
-      query: questionEmbedding,
-      limit: 1,
-      with_payload: true,
-    });
-
-    const bestMatch = result.points[0];
-
-    expect(bestMatch).toBeDefined();
-    expect(bestMatch?.payload?.content).toBe(
-      "Shipping fees are non-refundable.",
-    );
+    expect(chunks).toContain("Shipping fees are non-refundable.");
   });
 
-  it("retrieves shipping time for a delivery question", async () => {
-    const question = "How long until my package arrives?";
+  it("retrieves shipping time", async () => {
+    const chunks = await retrieveContext("How long until my package arrives?");
 
-    const questionEmbedding = await createEmbedding(question);
-
-    const result = await qdrant.query(COLLECTION_NAME, {
-      query: questionEmbedding,
-      limit: 1,
-      with_payload: true,
-    });
-
-    const bestMatch = result.points[0];
-
-    expect(bestMatch).toBeDefined();
-    expect(bestMatch?.payload?.content).toContain("shipping");
+    expect(
+      chunks.some((chunk) => chunk.toLowerCase().includes("shipping")),
+    ).toBe(true);
   });
 
-  it("does not return a strong match for an unsupported question", async () => {
-    const question = "Do you accept Bitcoin?";
+  it("returns no context for unsupported questions", async () => {
+    const chunks = await retrieveContext("Do you accept Bitcoin?");
 
-    const questionEmbedding = await createEmbedding(question);
-
-    const result = await qdrant.query(COLLECTION_NAME, {
-      query: questionEmbedding,
-      limit: 1,
-      with_payload: true,
-    });
-
-    const bestMatch = result.points[0];
-
-    expect(bestMatch).toBeDefined();
-    expect(bestMatch!.score).toBeLessThan(0.7);
+    expect(chunks).toEqual([]);
   });
 });
