@@ -27,7 +27,8 @@ Eventually, this project will cover:
 - TypeScript
 - pnpm
 - Vitest
-- Gemini API
+- Gemini API (LLM and embeddings)
+- Qdrant (vector database, run with Docker)
 
 Additional tools will be added as the project grows.
 
@@ -36,9 +37,18 @@ Additional tools will be added as the project grows.
 ```text
 rag-qa-demo/
 ├── src/
-│   └── index.ts
+│   ├── index.ts        # asks a question: retrieve, build prompt, call the LLM
+│   ├── ingest.ts       # reads documents, chunks, embeds, stores in Qdrant
+│   ├── retrieval.ts    # question -> relevant chunks
+│   ├── chunk.ts        # splits text into chunks
+│   ├── embedding.ts    # text -> embedding (Gemini)
+│   ├── llm.ts          # prompt -> answer (Gemini)
+│   ├── qdrant.ts       # Qdrant client and setup check
+│   └── constants.ts    # collection name, similarity threshold
 ├── tests/
+│   └── retrieval.test.ts
 ├── documents/
+├── docker-compose.yml  # local Qdrant
 ├── .env
 ├── .gitignore
 ├── package.json
@@ -53,13 +63,25 @@ Install dependencies:
 pnpm install
 ```
 
-Run the project:
+Start Qdrant:
+
+```bash
+docker compose up -d
+```
+
+Load the documents into Qdrant (rerun whenever the documents change):
+
+```bash
+pnpm ingest
+```
+
+Ask the question in `src/index.ts`:
 
 ```bash
 pnpm dev
 ```
 
-Run tests:
+Run tests (needs Qdrant running and documents ingested):
 
 ```bash
 pnpm test
@@ -165,6 +187,8 @@ Created:
 src/search.ts
 ```
 
+> This file was later removed. Qdrant replaced it (see Step 8).
+
 The application now checks the user's question and chooses a relevant document before calling the LLM. For now, that matching is still keyword-based.
 
 ### Why This Matters
@@ -246,6 +270,8 @@ Created:
 ```text
 src/similarity.ts
 ```
+
+> This file was later removed. Qdrant does this comparison for us (see Step 8).
 
 The application can now compare two embeddings and return a similarity score. For this project, we can think of the score as:
 

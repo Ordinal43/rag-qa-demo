@@ -8,7 +8,7 @@ import { qdrant } from "./qdrant.js";
 // Indexing side of RAG. Run once (pnpm ingest) whenever the documents change:
 //   read files -> chunk -> embed each chunk -> store in Qdrant
 // Questions are handled separately in retrieval.ts, so documents are embedded
-// once instead of on every question (which is what search.ts used to do).
+// once instead of on every question.
 
 const documents = [
   "documents/refund-policy.txt",
