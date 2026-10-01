@@ -115,7 +115,7 @@ We send text and receive generated text. More advanced concepts will be introduc
 
 ## Learning Progress
 
-### Step 1 — Project Setup
+### Step 1: Project Setup
 
 Created a basic Node.js + TypeScript project.
 
@@ -139,7 +139,7 @@ tests/
 documents/
 ```
 
-### Step 2 — Connect to an LLM
+### Step 2: Connect to an LLM
 
 Installed the Gemini SDK and dotenv:
 
@@ -149,7 +149,7 @@ pnpm add @google/genai dotenv
 
 Created a reusable `askLLM()` function in `src/llm.ts`.
 
-### Step 3 — Give the LLM Our Own Document
+### Step 3: Give the LLM Our Own Document
 
 Created:
 
@@ -173,7 +173,7 @@ The application now reads the document and sends it to the LLM with the user's q
 
 This is **not RAG yet**. We are still manually sending the full document to the LLM, which works for small inputs but does not scale well.
 
-### Step 4 — Add Basic Document Retrieval
+### Step 4: Add Basic Document Retrieval
 
 Added a second document:
 
@@ -213,7 +213,7 @@ This works for simple cases, but it has an obvious weakness. For example:
 
 may not match because the code only knows specific keywords. The next step is to replace that with a smarter search method that can recognize similar meaning even when the exact words are different.
 
-### Step 5 — Generate Our First Embedding
+### Step 5: Generate Our First Embedding
 
 Created:
 
@@ -263,7 +263,7 @@ than to:
 
 We are **not using a vector database yet**. The next step is to compare multiple embeddings and see whether the application can identify which sentence is closest in meaning to a user's question.
 
-### Step 6 — Compare Embeddings by Meaning
+### Step 6: Compare Embeddings by Meaning
 
 Created:
 
@@ -315,7 +315,7 @@ This is the basic idea behind vector search.
 
 We are still doing everything in memory and are not using a vector database yet.
 
-### Step 7 — Retrieve the Most Relevant Real Document
+### Step 7: Retrieve the Most Relevant Real Document
 
 Updated the retrieval logic so the application now reads the actual policy files instead of comparing hard-coded example strings.
 
@@ -401,7 +401,7 @@ embed shipping policy again
 
 This is inefficient because the policy documents usually do not change between questions, so there is no reason to repeatedly create their embeddings. The next step is to store document embeddings so they can be reused, which is where a **vector database** becomes useful.
 
-### Step 8 — Store and Search Embeddings with Qdrant
+### Step 8: Store and Search Embeddings with Qdrant
 
 Added a local Qdrant vector database using Docker Compose so document embeddings can be stored once and reused.
 
@@ -478,7 +478,7 @@ Qdrant compares it against stored embeddings
 return closest document
 ```
 
-### Step 9 — Complete the End-to-End RAG Flow
+### Step 9: Complete the End-to-End RAG Flow
 
 The application now performs a full small-scale RAG flow from retrieval through final answer generation.
 
@@ -579,7 +579,7 @@ store each section separately in Qdrant
 
 This will let the application retrieve the specific part of a document that is most relevant to the user's question.
 
-### Step 10 — Split Documents into Chunks
+### Step 10: Split Documents into Chunks
 
 Previously, each entire policy file was stored as one searchable item. That works for very small files, but larger documents can contain many unrelated topics, so the project now splits documents into smaller pieces before storing them.
 
@@ -655,7 +655,7 @@ The first two results were identical because the same sentence existed in both p
 
 This showed that the vector search was working correctly, but also introduced a duplicate-context problem.
 
-### Step 11 — Retrieve Multiple Relevant Chunks
+### Step 11: Retrieve Multiple Relevant Chunks
 
 Instead of retrieving only one result, the application now retrieves the top few matching chunks.
 
@@ -700,7 +700,7 @@ Generated answer:
 No, shipping fees are non-refundable.
 ```
 
-### Step 12 — Remove Duplicate Context
+### Step 12: Remove Duplicate Context
 
 Because the same information may exist in multiple documents, retrieval can return duplicate chunks.
 
@@ -783,7 +783,7 @@ From a QA perspective, each of these steps can be tested separately.
 
 The next step is to test what happens when the user's question cannot actually be answered by any of the stored documents.
 
-### Step 13 — Add a Minimum Retrieval Score
+### Step 13: Add a Minimum Retrieval Score
 
 Vector search will usually return the closest matches even when none of them are useful enough to answer the user's question.
 
