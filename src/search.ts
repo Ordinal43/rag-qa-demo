@@ -1,3 +1,8 @@
+// Legacy from README step 7, and not used by the current flow (index.ts uses
+// retrieval.ts + Qdrant). Kept as a reference for the naive approach.
+//
+// It works, but re-embeds every whole document on every question, and picks
+// only one best file. That is the problem Qdrant and chunking later solved.
 import fs from "node:fs/promises";
 import { createEmbedding } from "./embedding.js";
 import { cosineSimilarity } from "./similarity.js";
